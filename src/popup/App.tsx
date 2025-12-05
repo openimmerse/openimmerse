@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AppConfig, DEFAULT_CONFIG, PROVIDER_PRESETS } from '@/types';
+import { AppConfig, DEFAULT_CONFIG, PROVIDER_PRESETS, SUPPORTED_LANGUAGES, DisplayMode } from '@/types';
 import { testConnection } from '@/utils/api';
 
 type TabType = 'main' | 'settings' | 'about';
@@ -249,6 +249,35 @@ const App: React.FC = () => {
 
         {activeTab === 'settings' && (
           <>
+            {/* Display Mode */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                显示模式
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { value: 'bilingual' as DisplayMode, label: '双语对照', icon: '📖' },
+                  { value: 'replace' as DisplayMode, label: '仅译文', icon: '📝' },
+                  { value: 'hover' as DisplayMode, label: '悬浮显示', icon: '💬' },
+                ].map((mode) => (
+                  <button
+                    key={mode.value}
+                    onClick={() =>
+                      saveConfig({ translation: { ...config.translation, displayMode: mode.value } })
+                    }
+                    className={`p-2 text-xs rounded-lg border transition-all ${
+                      config.translation.displayMode === mode.value
+                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="block text-lg mb-1">{mode.icon}</span>
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Target Language */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -261,14 +290,31 @@ const App: React.FC = () => {
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
-                <option value="zh-CN">简体中文</option>
-                <option value="zh-TW">繁体中文</option>
-                <option value="en">English</option>
-                <option value="ja">日本語</option>
-                <option value="ko">한국어</option>
-                <option value="fr">Français</option>
-                <option value="de">Deutsch</option>
-                <option value="es">Español</option>
+                {SUPPORTED_LANGUAGES.filter(l => l.code !== 'auto').map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.name} ({lang.nameEn})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Source Language */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                源语言
+              </label>
+              <select
+                value={config.translation.sourceLang}
+                onChange={(e) =>
+                  saveConfig({ translation: { ...config.translation, sourceLang: e.target.value } })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.name} ({lang.nameEn})
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -299,8 +345,8 @@ const App: React.FC = () => {
                 onChange={(e) =>
                   saveConfig({ translation: { ...config.translation, systemPrompt: e.target.value } })
                 }
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none text-sm"
                 placeholder="你是一个翻译助手..."
               />
             </div>
@@ -319,6 +365,14 @@ const App: React.FC = () => {
               >
                 清除
               </button>
+            </div>
+
+            {/* Keyboard Shortcut Info */}
+            <div className="p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm font-medium text-blue-700">⌨️ 快捷键</p>
+              <p className="text-xs text-blue-600 mt-1">
+                Alt + T: 开启/关闭页面翻译
+              </p>
             </div>
           </>
         )}

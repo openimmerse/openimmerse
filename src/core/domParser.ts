@@ -1,5 +1,8 @@
-import { ParsedTextBlock } from '@/types';
+import { ParsedTextBlock, DisplayMode } from '@/types';
 import { generateHash } from '@/utils/cache';
+
+// 当前显示模式
+let currentDisplayMode: DisplayMode = 'bilingual';
 
 // 黑名单标签
 const BLACKLIST_TAGS = new Set([
@@ -146,29 +149,100 @@ export function createPlaceholder(block: ParsedTextBlock): HTMLElement {
 }
 
 /**
- * 更新占位符内容
+ * 设置显示模式
+ */
+export function setDisplayMode(mode: DisplayMode): void {
+  currentDisplayMode = mode;
+}
+
+/**
+ * 更新占位符内容 - 支持双语对照
  */
 export function updatePlaceholder(
   placeholder: HTMLElement,
   content: string,
-  isStreaming: boolean = false
+  isStreaming: boolean = false,
+  originalText?: string
 ): void {
-  placeholder.innerHTML = `
-    <div class="openimmerse-translation ${isStreaming ? 'streaming' : ''}">
-      ${content}
-      ${isStreaming ? '<span class="openimmerse-cursor"></span>' : ''}
+  const escapedContent = escapeHtml(content);
+  const cursor = isStreaming ? '<span class="openimmerse-cursor"></span>' : '';
+  
+  if (currentDisplayMode === 'bilingual' && originalText) {
+    // 双语对照模式
+    placeholder.className = 'openimmerse-container openimmerse-bilingual';
+    placeholder.innerHTML = `
+      <div class="openimmerse-original">${escapeHtml(originalText)}</div>
+      <div class="openimmerse-translated">
+        <span class="openimmerse-translation">${escapedContent}${cursor}</span>
+      </div>
+      ${!isStreaming ? createActionButtons(content) : ''}
+    `;
+  } else {
+    // 仅译文模式
+    placeholder.className = 'openimmerse-container openimmerse-replace';
+    placeholder.innerHTML = `
+      <span class="openimmerse-translation">${escapedContent}${cursor}</span>
+      ${!isStreaming ? createActionButtons(content) : ''}
+    `;
+  }
+  
+  // 绑定按钮事件
+  if (!isStreaming) {
+    bindActionEvents(placeholder, content);
+  }
+}
+
+/**
+ * 创建操作按钮
+ */
+function createActionButtons(_content: string): string {
+  return `
+    <div class="openimmerse-actions">
+      <button class="openimmerse-btn openimmerse-btn-copy" data-action="copy">📋 复制译文</button>
     </div>
   `;
+}
+
+/**
+ * 绑定操作按钮事件
+ */
+function bindActionEvents(placeholder: HTMLElement, content: string): void {
+  const copyBtn = placeholder.querySelector('[data-action="copy"]');
+  copyBtn?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      if (copyBtn instanceof HTMLElement) {
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = '✓ 已复制';
+        setTimeout(() => {
+          copyBtn.textContent = originalText;
+        }, 1500);
+      }
+    } catch (e) {
+      console.error('[OpenImmerse] Copy failed:', e);
+    }
+  });
+}
+
+/**
+ * HTML 转义
+ */
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 /**
  * 设置占位符错误状态
  */
 export function setPlaceholderError(placeholder: HTMLElement, error: string): void {
+  placeholder.className = 'openimmerse-container';
   placeholder.innerHTML = `
     <div class="openimmerse-error">
       <span class="openimmerse-error-icon">⚠️</span>
-      <span class="openimmerse-error-text">${error}</span>
+      <span class="openimmerse-error-text">${escapeHtml(error)}</span>
+      <button class="openimmerse-btn openimmerse-btn-retry" data-action="retry">🔄 重试</button>
     </div>
   `;
 }

@@ -7,12 +7,19 @@ export interface AIProviderConfig {
   concurrency: number;
 }
 
+// 显示模式
+export type DisplayMode = 'replace' | 'bilingual' | 'hover';
+
 // 翻译配置
 export interface TranslationConfig {
   enabled: boolean;
   targetLang: string;
+  sourceLang: string; // 'auto' 表示自动检测
   systemPrompt: string;
   minTextLength: number;
+  displayMode: DisplayMode; // 翻译显示模式
+  showOriginal: boolean; // 是否显示原文
+  autoTranslate: boolean; // 是否自动翻译（页面加载时）
 }
 
 // 完整配置
@@ -67,6 +74,29 @@ export interface ParsedTextBlock {
   placeholder?: HTMLElement;
 }
 
+// 支持的语言列表
+export const SUPPORTED_LANGUAGES = [
+  { code: 'auto', name: '自动检测', nameEn: 'Auto Detect' },
+  { code: 'zh-CN', name: '简体中文', nameEn: 'Simplified Chinese' },
+  { code: 'zh-TW', name: '繁体中文', nameEn: 'Traditional Chinese' },
+  { code: 'en', name: '英语', nameEn: 'English' },
+  { code: 'ja', name: '日语', nameEn: 'Japanese' },
+  { code: 'ko', name: '韩语', nameEn: 'Korean' },
+  { code: 'fr', name: '法语', nameEn: 'French' },
+  { code: 'de', name: '德语', nameEn: 'German' },
+  { code: 'es', name: '西班牙语', nameEn: 'Spanish' },
+  { code: 'pt', name: '葡萄牙语', nameEn: 'Portuguese' },
+  { code: 'ru', name: '俄语', nameEn: 'Russian' },
+  { code: 'ar', name: '阿拉伯语', nameEn: 'Arabic' },
+  { code: 'th', name: '泰语', nameEn: 'Thai' },
+  { code: 'vi', name: '越南语', nameEn: 'Vietnamese' },
+  { code: 'id', name: '印尼语', nameEn: 'Indonesian' },
+  { code: 'it', name: '意大利语', nameEn: 'Italian' },
+  { code: 'nl', name: '荷兰语', nameEn: 'Dutch' },
+  { code: 'pl', name: '波兰语', nameEn: 'Polish' },
+  { code: 'tr', name: '土耳其语', nameEn: 'Turkish' },
+];
+
 // 默认配置
 export const DEFAULT_CONFIG: AppConfig = {
   ai: {
@@ -79,8 +109,12 @@ export const DEFAULT_CONFIG: AppConfig = {
   translation: {
     enabled: false,
     targetLang: 'zh-CN',
+    sourceLang: 'auto',
     systemPrompt: '你是一个翻译助手。请将以下文本翻译成目标语言，直接输出翻译结果，不要添加任何解释或额外内容。保持原文的格式和段落结构。',
     minTextLength: 10,
+    displayMode: 'bilingual',
+    showOriginal: true,
+    autoTranslate: false,
   },
 };
 

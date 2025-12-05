@@ -5,8 +5,12 @@ import {
   createPlaceholder, 
   updatePlaceholder, 
   setPlaceholderError,
-  removeAllPlaceholders 
+  removeAllPlaceholders,
+  setDisplayMode
 } from './domParser';
+
+// 状态指示器
+let statusIndicator: HTMLElement | null = null;
 
 interface TranslatorState {
   isActive: boolean;
@@ -27,6 +31,47 @@ const state: TranslatorState = {
 };
 
 /**
+ * 显示状态指示器
+ */
+function showStatus(text: string): void {
+  if (!statusIndicator) {
+    statusIndicator = document.createElement('div');
+    statusIndicator.className = 'openimmerse-status';
+    document.body.appendChild(statusIndicator);
+  }
+  
+  statusIndicator.innerHTML = `
+    <div class="openimmerse-status-icon"></div>
+    <span>${text}</span>
+  `;
+  statusIndicator.classList.remove('hidden');
+}
+
+/**
+ * 隐藏状态指示器
+ */
+function hideStatus(): void {
+  if (statusIndicator) {
+    statusIndicator.classList.add('hidden');
+  }
+}
+
+/**
+ * 更新状态指示器
+ */
+function updateStatus(): void {
+  const pending = state.pendingBlocks.size;
+  const translating = state.translatingBlocks.size;
+  
+  if (translating > 0 || pending > 0) {
+    showStatus(`翻译中... ${translating}/${pending + translating}`);
+  } else if (state.isActive) {
+    showStatus('翻译完成 ✓');
+    setTimeout(hideStatus, 2000);
+  }
+}
+
+/**
  * 处理单个文本块的翻译
  */
 async function translateBlock(block: ParsedTextBlock): Promise<void> {
@@ -41,6 +86,7 @@ async function translateBlock(block: ParsedTextBlock): Promise<void> {
   
   state.translatingBlocks.add(block.hash);
   state.concurrencyCount++;
+  updateStatus();
   
   try {
     let translatedText = '';
@@ -54,13 +100,13 @@ async function translateBlock(block: ParsedTextBlock): Promise<void> {
     for await (const chunk of stream) {
       translatedText += chunk;
       if (block.placeholder) {
-        updatePlaceholder(block.placeholder, translatedText, true);
+        updatePlaceholder(block.placeholder, translatedText, true, block.text);
       }
     }
     
     // 完成翻译
     if (block.placeholder) {
-      updatePlaceholder(block.placeholder, translatedText, false);
+      updatePlaceholder(block.placeholder, translatedText, false, block.text);
     }
   } catch (error) {
     if (block.placeholder) {
@@ -72,6 +118,7 @@ async function translateBlock(block: ParsedTextBlock): Promise<void> {
   } finally {
     state.translatingBlocks.delete(block.hash);
     state.concurrencyCount--;
+    updateStatus();
     
     // 处理队列中的下一个
     processQueue();
@@ -124,6 +171,9 @@ function handleIntersection(entries: IntersectionObserverEntry[]): void {
  */
 export function initTranslator(config: AppConfig): void {
   state.config = config;
+  
+  // 设置显示模式
+  setDisplayMode(config.translation.displayMode);
   
   // 创建 IntersectionObserver
   state.observer = new IntersectionObserver(handleIntersection, {

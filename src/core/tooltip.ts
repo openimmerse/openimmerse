@@ -35,8 +35,8 @@ function createContainer(): void {
   style.textContent = `
     .tooltip-trigger {
       position: fixed;
-      width: 24px;
-      height: 24px;
+      width: 32px;
+      height: 32px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       border-radius: 50%;
       cursor: pointer;
@@ -44,66 +44,93 @@ function createContainer(): void {
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 2px 12px rgba(102, 126, 234, 0.4);
+      transition: all 0.2s ease;
       z-index: 2147483647;
+      animation: tooltip-appear 0.2s ease;
+    }
+    @keyframes tooltip-appear {
+      from { opacity: 0; transform: scale(0.8); }
+      to { opacity: 1; transform: scale(1); }
     }
     .tooltip-trigger:hover {
-      transform: scale(1.1);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transform: scale(1.15);
+      box-shadow: 0 4px 16px rgba(102, 126, 234, 0.5);
     }
     .tooltip-trigger svg {
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       fill: white;
     }
     .tooltip-popup {
       position: fixed;
-      min-width: 200px;
-      max-width: 400px;
-      max-height: 300px;
+      min-width: 280px;
+      max-width: 420px;
       background: white;
-      border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
       pointer-events: auto;
       overflow: hidden;
       z-index: 2147483647;
+      animation: popup-appear 0.25s ease;
+    }
+    @keyframes popup-appear {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     .tooltip-header {
-      padding: 8px 12px;
+      padding: 10px 14px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
-      font-size: 12px;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 600;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
+    .tooltip-header-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tooltip-header-title svg {
+      width: 16px;
+      height: 16px;
+      fill: white;
+    }
     .tooltip-close {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
       opacity: 0.8;
-      transition: opacity 0.2s;
+      transition: all 0.2s;
+      border-radius: 50%;
     }
     .tooltip-close:hover {
       opacity: 1;
+      background: rgba(255,255,255,0.2);
     }
     .tooltip-content {
-      padding: 12px;
+      padding: 14px;
       font-size: 14px;
-      line-height: 1.6;
+      line-height: 1.7;
       color: #333;
       overflow-y: auto;
-      max-height: 250px;
+      max-height: 200px;
     }
     .tooltip-loading {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       color: #666;
+      padding: 8px 0;
     }
     .tooltip-spinner {
-      width: 16px;
-      height: 16px;
+      width: 18px;
+      height: 18px;
       border: 2px solid #e0e0e0;
       border-top-color: #667eea;
       border-radius: 50%;
@@ -119,19 +146,70 @@ function createContainer(): void {
       background: #667eea;
       animation: blink 0.8s infinite;
       vertical-align: text-bottom;
+      margin-left: 2px;
     }
     @keyframes blink {
       50% { opacity: 0; }
     }
     .tooltip-error {
       color: #e53935;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     .tooltip-original {
       font-size: 12px;
-      color: #999;
-      border-top: 1px solid #eee;
-      padding: 8px 12px;
+      color: #888;
+      border-top: 1px solid #f0f0f0;
+      padding: 10px 14px;
       background: #fafafa;
+      max-height: 60px;
+      overflow-y: auto;
+    }
+    .tooltip-original-label {
+      font-size: 10px;
+      color: #aaa;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .tooltip-actions {
+      display: flex;
+      gap: 8px;
+      padding: 10px 14px;
+      background: #f8f9fa;
+      border-top: 1px solid #f0f0f0;
+    }
+    .tooltip-btn {
+      flex: 1;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .tooltip-btn-copy {
+      background: #667eea;
+      color: white;
+    }
+    .tooltip-btn-copy:hover {
+      background: #5a6fd6;
+    }
+    .tooltip-btn-copy.copied {
+      background: #10b981;
+    }
+    .tooltip-btn-speak {
+      background: #f0f0f0;
+      color: #666;
+    }
+    .tooltip-btn-speak:hover {
+      background: #e0e0e0;
     }
   `;
   state.shadowRoot.appendChild(style);
@@ -193,25 +271,48 @@ async function showPopup(x: number, y: number): Promise<void> {
   const popup = document.createElement('div');
   popup.className = 'tooltip-popup';
   
-  // 计算位置
-  const popupX = Math.min(x, window.innerWidth - 420);
-  const popupY = Math.min(y, window.innerHeight - 320);
+  // 计算位置，确保不超出屏幕
+  const popupWidth = 320;
+  const popupHeight = 280;
+  let popupX = x;
+  let popupY = y;
+  
+  if (popupX + popupWidth > window.innerWidth) {
+    popupX = window.innerWidth - popupWidth - 20;
+  }
+  if (popupY + popupHeight > window.innerHeight) {
+    popupY = window.innerHeight - popupHeight - 20;
+  }
+  if (popupX < 10) popupX = 10;
+  if (popupY < 10) popupY = 10;
   
   popup.style.left = `${popupX}px`;
   popup.style.top = `${popupY}px`;
   
+  const originalPreview = state.currentText.length > 80 
+    ? state.currentText.slice(0, 80) + '...' 
+    : state.currentText;
+  
   popup.innerHTML = `
     <div class="tooltip-header">
-      <span>OpenImmerse</span>
+      <div class="tooltip-header-title">
+        <svg viewBox="0 0 24 24">
+          <path d="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0014.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/>
+        </svg>
+        <span>OpenImmerse</span>
+      </div>
       <span class="tooltip-close">✕</span>
     </div>
     <div class="tooltip-content">
       <div class="tooltip-loading">
         <div class="tooltip-spinner"></div>
-        <span>Translating...</span>
+        <span>正在翻译...</span>
       </div>
     </div>
-    <div class="tooltip-original">${escapeHtml(state.currentText.slice(0, 100))}${state.currentText.length > 100 ? '...' : ''}</div>
+    <div class="tooltip-original">
+      <div class="tooltip-original-label">原文</div>
+      ${escapeHtml(originalPreview)}
+    </div>
   `;
   
   state.shadowRoot.appendChild(popup);
@@ -228,7 +329,7 @@ async function showPopup(x: number, y: number): Promise<void> {
     const { ai, translation } = state.config;
     
     if (!ai.apiKey) {
-      contentEl.innerHTML = '<div class="tooltip-error">API Key not configured</div>';
+      contentEl.innerHTML = '<div class="tooltip-error">⚠️ 请先配置 API Key</div>';
       return;
     }
     
@@ -244,9 +345,46 @@ async function showPopup(x: number, y: number): Promise<void> {
       contentEl.innerHTML = `${escapeHtml(translatedText)}<span class="tooltip-cursor"></span>`;
     }
     
+    // 翻译完成，显示结果和操作按钮
     contentEl.innerHTML = escapeHtml(translatedText);
+    
+    // 添加操作按钮
+    const actionsEl = document.createElement('div');
+    actionsEl.className = 'tooltip-actions';
+    actionsEl.innerHTML = `
+      <button class="tooltip-btn tooltip-btn-copy">📋 复制译文</button>
+      <button class="tooltip-btn tooltip-btn-speak">🔊 朗读</button>
+    `;
+    popup.appendChild(actionsEl);
+    
+    // 绑定复制事件
+    const copyBtn = actionsEl.querySelector('.tooltip-btn-copy');
+    copyBtn?.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(translatedText);
+        if (copyBtn instanceof HTMLElement) {
+          copyBtn.textContent = '✓ 已复制';
+          copyBtn.classList.add('copied');
+          setTimeout(() => {
+            copyBtn.textContent = '📋 复制译文';
+            copyBtn.classList.remove('copied');
+          }, 1500);
+        }
+      } catch (e) {
+        console.error('[OpenImmerse] Copy failed:', e);
+      }
+    });
+    
+    // 绑定朗读事件
+    const speakBtn = actionsEl.querySelector('.tooltip-btn-speak');
+    speakBtn?.addEventListener('click', () => {
+      const utterance = new SpeechSynthesisUtterance(translatedText);
+      utterance.lang = translation.targetLang;
+      speechSynthesis.speak(utterance);
+    });
+    
   } catch (error) {
-    contentEl.innerHTML = `<div class="tooltip-error">${escapeHtml(error instanceof Error ? error.message : 'Translation failed')}</div>`;
+    contentEl.innerHTML = `<div class="tooltip-error">⚠️ ${escapeHtml(error instanceof Error ? error.message : '翻译失败')}</div>`;
   }
 }
 
