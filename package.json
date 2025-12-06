@@ -1,7 +1,12 @@
 {
   "name": "openimmerse",
-  "version": "1.0.0",
+  "version": "0.0.2",
   "description": "AI-native immersive translation Chrome extension",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openimmerse/openimmerse.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite build --watch",
