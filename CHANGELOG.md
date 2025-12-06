@@ -4,7 +4,7 @@ All notable changes to OpenImmerse will be documented in this file.
 
 ---
 
-## [1.1.0] - 2025-12-06
+## [0.0.2] - 2025-12-06
 
 ### ✨ New Features / 新功能
 
@@ -64,7 +64,7 @@ All notable changes to OpenImmerse will be documented in this file.
 
 ---
 
-## [1.0.0] - 2025-12-05
+## [0.0.1] - 2025-12-05
 
 ### 🎉 Initial Release / 首次发布
 
