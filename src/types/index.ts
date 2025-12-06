@@ -22,10 +22,29 @@ export interface TranslationConfig {
   autoTranslate: boolean; // 是否自动翻译（页面加载时）
 }
 
+// 网站规则
+export interface SiteRule {
+  pattern: string; // URL 匹配模式，支持 * 通配符
+  enabled: boolean;
+  autoTranslate?: boolean;
+  targetLang?: string;
+}
+
+// 翻译统计
+export interface TranslationStats {
+  totalTranslations: number;
+  totalCharacters: number;
+  cacheHits: number;
+  lastTranslateTime: number;
+  dailyStats: Record<string, { translations: number; characters: number }>;
+}
+
 // 完整配置
 export interface AppConfig {
   ai: AIProviderConfig;
   translation: TranslationConfig;
+  siteRules: SiteRule[];
+  stats: TranslationStats;
 }
 
 // 翻译缓存条目
@@ -97,6 +116,15 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'tr', name: '土耳其语', nameEn: 'Turkish' },
 ];
 
+// 默认统计数据
+export const DEFAULT_STATS: TranslationStats = {
+  totalTranslations: 0,
+  totalCharacters: 0,
+  cacheHits: 0,
+  lastTranslateTime: 0,
+  dailyStats: {},
+};
+
 // 默认配置
 export const DEFAULT_CONFIG: AppConfig = {
   ai: {
@@ -116,6 +144,8 @@ export const DEFAULT_CONFIG: AppConfig = {
     showOriginal: true,
     autoTranslate: false,
   },
+  siteRules: [],
+  stats: DEFAULT_STATS,
 };
 
 // Provider 预设

@@ -221,6 +221,24 @@ function injectStyles(): void {
   document.head.appendChild(style);
 }
 
+// 显示右键菜单翻译结果的浮窗
+function showContextMenuTranslation(_text: string): void {
+  // 复用 tooltip 的显示逻辑，通过模拟 mouseup 事件触发
+  const selection = window.getSelection();
+  if (selection && selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    
+    // 触发划词翻译的显示
+    const event = new MouseEvent('mouseup', {
+      clientX: rect.right,
+      clientY: rect.bottom,
+      bubbles: true,
+    });
+    document.dispatchEvent(event);
+  }
+}
+
 // 消息处理
 function setupMessageListener(): void {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -239,6 +257,14 @@ function setupMessageListener(): void {
           url: window.location.href,
           title: document.title,
         });
+        break;
+        
+      case 'TRANSLATE_SELECTION':
+        // 右键菜单翻译选中文本
+        if (message.payload?.text) {
+          showContextMenuTranslation(message.payload.text);
+        }
+        sendResponse({ success: true });
         break;
         
       default:

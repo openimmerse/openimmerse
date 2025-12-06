@@ -4,20 +4,63 @@ import { generateHash } from '@/utils/cache';
 // 当前显示模式
 let currentDisplayMode: DisplayMode = 'bilingual';
 
-// 黑名单标签
+// 黑名单标签 - 不翻译的元素
 const BLACKLIST_TAGS = new Set([
   'SCRIPT', 'STYLE', 'NOSCRIPT', 'IFRAME', 'OBJECT', 'EMBED',
-  'NAV', 'FOOTER', 'HEADER', 'ASIDE', 'CODE', 'PRE', 'SVG',
+  'CODE', 'PRE', 'SVG', 'MATH', 'KBD', 'SAMP', 'VAR',
   'CANVAS', 'VIDEO', 'AUDIO', 'IMG', 'INPUT', 'TEXTAREA', 'SELECT',
   'BUTTON', 'FORM', 'META', 'LINK', 'HEAD', 'TITLE',
 ]);
 
-// 目标块级标签
+// 低优先级标签 - 可能包含导航等非主要内容
+const LOW_PRIORITY_TAGS = new Set([
+  'NAV', 'FOOTER', 'HEADER', 'ASIDE', 'MENU', 'MENUITEM',
+]);
+
+// 目标块级标签 - 主要翻译目标
 const BLOCK_TAGS = new Set([
   'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
   'LI', 'BLOCKQUOTE', 'TD', 'TH', 'DIV', 'ARTICLE', 'SECTION',
-  'FIGCAPTION', 'CAPTION', 'DD', 'DT',
+  'FIGCAPTION', 'CAPTION', 'DD', 'DT', 'SUMMARY', 'DETAILS',
 ]);
+
+// 内联标签 - 保持在块内
+const INLINE_TAGS = new Set([
+  'A', 'SPAN', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'MARK',
+  'SMALL', 'SUB', 'SUP', 'ABBR', 'CITE', 'Q', 'TIME', 'LABEL',
+]);
+
+// 特定网站的选择器配置
+const SITE_SELECTORS: Record<string, { content: string; exclude: string[] }> = {
+  'github.com': {
+    content: '.markdown-body, .comment-body, .blob-code-inner',
+    exclude: ['.file-navigation', '.repository-content .Box-header'],
+  },
+  'medium.com': {
+    content: 'article p, article h1, article h2, article h3, article h4',
+    exclude: ['.metabar', '.postActions'],
+  },
+  'twitter.com': {
+    content: '[data-testid="tweetText"]',
+    exclude: [],
+  },
+  'x.com': {
+    content: '[data-testid="tweetText"]',
+    exclude: [],
+  },
+  'reddit.com': {
+    content: '[data-click-id="text"] p, .RichTextJSON-root',
+    exclude: ['.Comment__meta'],
+  },
+  'stackoverflow.com': {
+    content: '.s-prose p, .s-prose li, .comment-copy',
+    exclude: ['.post-menu', '.user-info'],
+  },
+  'news.ycombinator.com': {
+    content: '.commtext, .storylink, .title a',
+    exclude: ['.subtext'],
+  },
+};
 
 // OpenImmerse 标记属性
 const MARKER_ATTR = 'data-openimmerse';
@@ -63,10 +106,91 @@ function getTextContent(element: Element): string {
 /**
  * 检查文本是否主要是英文或其他需要翻译的语言
  */
-function needsTranslation(text: string): boolean {
-  // 简单启发式：如果包含大量非中文字符，可能需要翻译
-  const nonChineseRatio = text.replace(/[\u4e00-\u9fff]/g, '').length / text.length;
-  return nonChineseRatio > 0.5;
+function needsTranslation(text: string, targetLang: string = 'zh-CN'): boolean {
+  if (text.length === 0) return false;
+  
+  // 统计各类字符
+  const chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+  const japaneseChars = (text.match(/[\u3040-\u309f\u30a0-\u30ff]/g) || []).length;
+  const koreanChars = (text.match(/[\uac00-\ud7af]/g) || []).length;
+  const latinChars = (text.match(/[a-zA-Z]/g) || []).length;
+  const cyrillicChars = (text.match(/[\u0400-\u04ff]/g) || []).length;
+  const arabicChars = (text.match(/[\u0600-\u06ff]/g) || []).length;
+  
+  const totalChars = text.replace(/\s/g, '').length;
+  if (totalChars === 0) return false;
+  
+  // 根据目标语言判断是否需要翻译
+  if (targetLang.startsWith('zh')) {
+    // 目标是中文，如果已经是中文则不翻译
+    return chineseChars / totalChars < 0.5;
+  } else if (targetLang === 'ja') {
+    // 目标是日文
+    return (chineseChars + japaneseChars) / totalChars < 0.5;
+  } else if (targetLang === 'ko') {
+    // 目标是韩文
+    return koreanChars / totalChars < 0.5;
+  } else if (targetLang === 'ru') {
+    // 目标是俄文
+    return cyrillicChars / totalChars < 0.5;
+  } else if (targetLang === 'ar') {
+    // 目标是阿拉伯文
+    return arabicChars / totalChars < 0.5;
+  } else {
+    // 目标是拉丁语系（英、法、德、西等）
+    return latinChars / totalChars < 0.5;
+  }
+}
+
+/**
+ * 获取当前网站的特定选择器
+ */
+function getSiteConfig(): { content: string; exclude: string[] } | null {
+  const hostname = window.location.hostname;
+  
+  for (const [domain, config] of Object.entries(SITE_SELECTORS)) {
+    if (hostname.includes(domain)) {
+      return config;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * 检查元素是否在低优先级区域
+ */
+function isInLowPriorityArea(element: Element): boolean {
+  let parent: Element | null = element;
+  while (parent) {
+    if (LOW_PRIORITY_TAGS.has(parent.tagName)) {
+      return true;
+    }
+    // 检查常见的低优先级类名
+    const className = parent.className?.toLowerCase() || '';
+    if (className.includes('sidebar') || 
+        className.includes('navigation') ||
+        className.includes('menu') ||
+        className.includes('footer') ||
+        className.includes('header') ||
+        className.includes('advertisement') ||
+        className.includes('ad-')) {
+      return true;
+    }
+    parent = parent.parentElement;
+  }
+  return false;
+}
+
+/**
+ * 检查元素是否包含主要是内联内容
+ */
+function hasMainlyInlineContent(element: Element): boolean {
+  const children = Array.from(element.children);
+  if (children.length === 0) return true;
+  
+  const inlineChildren = children.filter(child => INLINE_TAGS.has(child.tagName));
+  return inlineChildren.length / children.length > 0.7;
 }
 
 /**
@@ -74,11 +198,40 @@ function needsTranslation(text: string): boolean {
  */
 export function parseTextBlocks(
   root: Element = document.body,
-  minTextLength: number = 10
+  minTextLength: number = 10,
+  targetLang: string = 'zh-CN'
 ): ParsedTextBlock[] {
   const blocks: ParsedTextBlock[] = [];
+  const siteConfig = getSiteConfig();
   
-  // 遍历所有块级元素
+  // 如果有网站特定配置，使用特定选择器
+  if (siteConfig) {
+    const elements = root.querySelectorAll(siteConfig.content);
+    
+    elements.forEach(element => {
+      // 检查是否在排除区域
+      const isExcluded = siteConfig.exclude.some(selector => 
+        element.closest(selector) !== null
+      );
+      if (isExcluded) return;
+      
+      if (shouldSkipElement(element)) return;
+      
+      const text = getTextContent(element);
+      if (text.length < minTextLength) return;
+      if (!needsTranslation(text, targetLang)) return;
+      
+      blocks.push({
+        element: element as HTMLElement,
+        text,
+        hash: generateHash(text),
+      });
+    });
+    
+    return blocks;
+  }
+  
+  // 通用解析逻辑
   const walker = document.createTreeWalker(
     root,
     NodeFilter.SHOW_ELEMENT,
@@ -108,20 +261,27 @@ export function parseTextBlocks(
     if (text.length < minTextLength) continue;
     
     // 检查是否需要翻译
-    if (!needsTranslation(text)) continue;
+    if (!needsTranslation(text, targetLang)) continue;
     
     // 检查是否包含子块级元素（避免重复）
     const hasBlockChild = Array.from(element.children).some(
       child => BLOCK_TAGS.has(child.tagName)
     );
-    if (hasBlockChild) continue;
+    if (hasBlockChild && !hasMainlyInlineContent(element)) continue;
+    
+    // 低优先级区域的元素放到后面
+    const priority = isInLowPriorityArea(element) ? 1 : 0;
     
     blocks.push({
       element,
       text,
       hash: generateHash(text),
-    });
+      priority,
+    } as ParsedTextBlock & { priority?: number });
   }
+  
+  // 按优先级排序
+  blocks.sort((a, b) => ((a as unknown as { priority?: number }).priority || 0) - ((b as unknown as { priority?: number }).priority || 0));
   
   return blocks;
 }

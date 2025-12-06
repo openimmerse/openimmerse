@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { AppConfig, DEFAULT_CONFIG, PROVIDER_PRESETS, SUPPORTED_LANGUAGES, DisplayMode } from '@/types';
+import { AppConfig, DEFAULT_CONFIG, PROVIDER_PRESETS, SUPPORTED_LANGUAGES, DisplayMode, TranslationStats, SiteRule } from '@/types';
 import { testConnection } from '@/utils/api';
 
-type TabType = 'main' | 'settings' | 'about';
+type TabType = 'main' | 'settings' | 'stats' | 'about';
+
+interface WeeklyStatsItem {
+  date: string;
+  translations: number;
+  characters: number;
+}
 
 const App: React.FC = () => {
   const [config, setConfig] = useState<AppConfig>(DEFAULT_CONFIG);
@@ -11,6 +17,8 @@ const App: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [cacheStats, setCacheStats] = useState<{ count: number } | null>(null);
+  const [stats, setStats] = useState<TranslationStats | null>(null);
+  const [weeklyStats, setWeeklyStats] = useState<WeeklyStatsItem[]>([]);
 
   // 加载配置
   useEffect(() => {
@@ -25,6 +33,20 @@ const App: React.FC = () => {
     chrome.runtime.sendMessage({ type: 'GET_CACHE_STATS' }, (response) => {
       if (response?.success && response.data) {
         setCacheStats(response.data);
+      }
+    });
+
+    // 获取翻译统计
+    chrome.runtime.sendMessage({ type: 'GET_STATS' }, (response) => {
+      if (response?.success && response.data) {
+        setStats(response.data);
+      }
+    });
+
+    // 获取周统计
+    chrome.runtime.sendMessage({ type: 'GET_WEEKLY_STATS' }, (response) => {
+      if (response?.success && response.data) {
+        setWeeklyStats(response.data);
       }
     });
   }, []);
@@ -145,17 +167,17 @@ const App: React.FC = () => {
 
       {/* Tabs */}
       <div className="flex border-b">
-        {(['main', 'settings', 'about'] as TabType[]).map((tab) => (
+        {(['main', 'settings', 'stats', 'about'] as TabType[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-3 text-sm font-medium transition-colors ${
+            className={`flex-1 py-2 text-xs font-medium transition-colors ${
               activeTab === tab
                 ? 'text-indigo-600 border-b-2 border-indigo-600'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            {tab === 'main' ? '配置' : tab === 'settings' ? '高级' : '关于'}
+            {tab === 'main' ? '配置' : tab === 'settings' ? '高级' : tab === 'stats' ? '统计' : '关于'}
           </button>
         ))}
       </div>
@@ -375,6 +397,83 @@ const App: React.FC = () => {
               </p>
             </div>
           </>
+        )}
+
+        {activeTab === 'stats' && (
+          <div className="space-y-4">
+            {/* 总体统计 */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg">
+                <p className="text-xs text-gray-500">总翻译次数</p>
+                <p className="text-xl font-bold text-indigo-600">{stats?.totalTranslations || 0}</p>
+              </div>
+              <div className="p-3 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg">
+                <p className="text-xs text-gray-500">总字符数</p>
+                <p className="text-xl font-bold text-green-600">{(stats?.totalCharacters || 0).toLocaleString()}</p>
+              </div>
+              <div className="p-3 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg">
+                <p className="text-xs text-gray-500">缓存命中</p>
+                <p className="text-xl font-bold text-blue-600">{stats?.cacheHits || 0}</p>
+              </div>
+              <div className="p-3 bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg">
+                <p className="text-xs text-gray-500">缓存条目</p>
+                <p className="text-xl font-bold text-orange-600">{cacheStats?.count || 0}</p>
+              </div>
+            </div>
+
+            {/* 最近7天统计 */}
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">最近 7 天</p>
+              <div className="space-y-2">
+                {weeklyStats.map((day) => (
+                  <div key={day.date} className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 w-20">{day.date.slice(5)}</span>
+                    <div className="flex-1 h-4 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
+                        style={{
+                          width: `${Math.min(100, (day.translations / Math.max(...weeklyStats.map(d => d.translations), 1)) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-600 w-8 text-right">{day.translations}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 网站规则 */}
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">网站规则 ({config.siteRules.length})</p>
+              {config.siteRules.length === 0 ? (
+                <p className="text-xs text-gray-400 text-center py-4">暂无规则，右键菜单可添加</p>
+              ) : (
+                <div className="space-y-1 max-h-24 overflow-y-auto">
+                  {config.siteRules.map((rule: SiteRule, index: number) => (
+                    <div key={index} className="flex items-center justify-between text-xs p-2 bg-gray-50 rounded">
+                      <span className="truncate flex-1" title={rule.pattern}>{rule.pattern}</span>
+                      <span className={`ml-2 px-1.5 py-0.5 rounded ${rule.enabled ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {rule.enabled ? '启用' : '禁用'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 重置按钮 */}
+            <button
+              onClick={() => {
+                chrome.runtime.sendMessage({ type: 'RESET_STATS' }, () => {
+                  setStats(null);
+                  setWeeklyStats([]);
+                });
+              }}
+              className="w-full py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              重置统计数据
+            </button>
+          </div>
         )}
 
         {activeTab === 'about' && (
